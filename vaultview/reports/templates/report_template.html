@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VaultView Report - {{ report_title }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .summary {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .summary-item {
+            text-align: center;
+            padding: 15px;
+            background-color: white;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .summary-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h3 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .status-good { color: #28a745; }
+        .status-warning { color: #ffc107; }
+        .status-error { color: #dc3545; }
+        .domain-list {
+            list-style: none;
+            padding: 0;
+        }
+        .domain-item {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+            border-left: 3px solid #007bff;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>VaultView Security Report</h1>
+            <p>Generated on {{ generation_date }}</p>
+            <p>Period: Last {{ period_days }} days</p>
+        </div>
+
+        <div class="summary">
+            <h2>Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-number">{{ summary.total_scans }}</div>
+                    <div>Total Scans</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number">{{ summary.ssl_scans }}</div>
+                    <div>SSL Scans</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number">{{ summary.dns_scans }}</div>
+                    <div>DNS Scans</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number">{{ summary.domains_scanned }}</div>
+                    <div>Domains Scanned</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>SSL Certificate Analysis</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-number status-good">{{ ssl_analysis.valid_certificates }}</div>
+                    <div>Valid Certificates</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number status-error">{{ ssl_analysis.expired_certificates }}</div>
+                    <div>Expired Certificates</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-number status-warning">{{ ssl_analysis.expiring_soon }}</div>
+                    <div>Expiring Soon (≤30 days)</div>
+                </div>
+            </div>
+            
+            {% if ssl_analysis.domains %}
+            <h4>Domain Status</h4>
+            <ul class="domain-list">
+                {% for domain, info in ssl_analysis.domains.items() %}
+                <li class="domain-item">
+                    <strong>{{ domain }}</strong> - 
+                    <span class="status-{{ 'good' if info.status == 'valid' else 'error' }}">
+                        {{ info.status.upper() }}
+                    </span>
+                    {% if info.days_until_expiry > 0 %}
+                        ({{ info.days_until_expiry }} days remaining)
+                    {% else %}
+                        (Expired {{ -info.days_until_expiry }} days ago)
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h3>DNS Record Analysis</h3>
+            <p>Total DNS scans: {{ dns_analysis.total_scans }}</p>
+            
+            {% if dns_analysis.domains %}
+            <h4>Domain DNS Status</h4>
+            <ul class="domain-list">
+                {% for domain, info in dns_analysis.domains.items() %}
+                <li class="domain-item">
+                    <strong>{{ domain }}</strong><br>
+                    Record types: {{ info.record_types|join(', ') }}<br>
+                    A Records: {{ '✓' if info.has_a_records else '✗' }} |
+                    AAAA Records: {{ '✓' if info.has_aaaa_records else '✗' }} |
+                    MX Records: {{ '✓' if info.has_mx_records else '✗' }} |
+                    NS Records: {{ '✓' if info.has_ns_records else '✗' }}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <p>Report generated by VaultView - Domain Security Monitoring Tool</p>
+            <p>For questions or support, please contact your system administrator</p>
+        </div>
+    </div>
+</body>
+</html> 
