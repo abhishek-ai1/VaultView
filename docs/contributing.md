@@ -567,15 +567,10 @@ Other approaches you've considered
 ### Resources
 
 - **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/vaultview/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/vaultview/discussions)
-- **Wiki**: [GitHub Wiki](https://github.com/yourusername/vaultview/wiki)
+- **Issues**: [GitHub Issues](https://github.com/abhishek-ai1/vaultview/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/abhishek-ai1/vaultview/discussions)
+- **Wiki**: [GitHub Wiki](https://github.com/abhishek-ai1/vaultview/wiki)
 
-### Communication
-
-- **Email**: contributors@vaultview.com
-- **Slack**: [VaultView Slack](https://vaultview.slack.com)
-- **Discord**: [VaultView Discord](https://discord.gg/vaultview)
 
 ## 🙏 Recognition
 
