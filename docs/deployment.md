@@ -709,5 +709,4 @@ sudo tail -f /var/log/nginx/error.log
 
 For deployment support:
 - **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/vaultview/issues)
-- **Email**: deployment-support@vaultview.com 
+- **Issues**: [GitHub Issues](https://github.com/abhishek-ai1/vaultview/issues)
