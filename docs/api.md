@@ -586,5 +586,4 @@ ws.send(JSON.stringify({
 
 For API support and questions:
 - **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/vaultview/issues)
-- **Email**: api-support@vaultview.com 
+- **Issues**: [GitHub Issues](https://github.com/abhishek-ai1/vaultview/issues)
