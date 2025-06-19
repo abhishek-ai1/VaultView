@@ -1,0 +1,340 @@
+{% extends "layout.html" %}
+
+{% block title %}Notifications - VaultView{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header-section">
+        <h1><i class="fas fa-bell"></i> Notification Settings</h1>
+        <p>Configure email and webhook notifications for security alerts</p>
+    </div>
+
+    <!-- Email Notifications -->
+    <div class="notification-section">
+        <div class="section-header">
+            <h2><i class="fas fa-envelope"></i> Email Notifications</h2>
+            <div class="section-toggle">
+                <label class="switch">
+                    <input type="checkbox" id="emailEnabled" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="notification-content" id="emailContent">
+            <div class="form-group">
+                <label for="smtpServer">SMTP Server</label>
+                <input type="text" id="smtpServer" class="form-control" value="smtp.gmail.com" placeholder="smtp.gmail.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="smtpPort">SMTP Port</label>
+                <input type="number" id="smtpPort" class="form-control" value="587" placeholder="587">
+            </div>
+            
+            <div class="form-group">
+                <label for="smtpUsername">SMTP Username</label>
+                <input type="email" id="smtpUsername" class="form-control" placeholder="your-email@gmail.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="smtpPassword">SMTP Password</label>
+                <input type="password" id="smtpPassword" class="form-control" placeholder="App password or regular password">
+                <small class="form-help">For Gmail, use an App Password instead of your regular password</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="fromEmail">From Email</label>
+                <input type="email" id="fromEmail" class="form-control" placeholder="alerts@yourdomain.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="toEmail">To Email</label>
+                <input type="email" id="toEmail" class="form-control" placeholder="recipient@example.com">
+            </div>
+            
+            <div class="test-section">
+                <button class="btn btn-secondary" onclick="testEmailNotification()">
+                    <i class="fas fa-paper-plane"></i> Test Email
+                </button>
+                <div class="test-result" id="emailTestResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Webhook Notifications -->
+    <div class="notification-section">
+        <div class="section-header">
+            <h2><i class="fas fa-link"></i> Webhook Notifications</h2>
+            <div class="section-toggle">
+                <label class="switch">
+                    <input type="checkbox" id="webhookEnabled">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="notification-content" id="webhookContent" style="display: none;">
+            <div class="form-group">
+                <label for="webhookUrl">Webhook URL</label>
+                <input type="url" id="webhookUrl" class="form-control" placeholder="https://your-webhook-endpoint.com/webhook">
+            </div>
+            
+            <div class="form-group">
+                <label for="webhookHeaders">Custom Headers (JSON)</label>
+                <textarea id="webhookHeaders" class="form-control" rows="3" placeholder='{"Authorization": "Bearer your-token", "Content-Type": "application/json"}'></textarea>
+                <small class="form-help">Optional: Add custom headers for authentication or content type</small>
+            </div>
+            
+            <div class="test-section">
+                <button class="btn btn-secondary" onclick="testWebhookNotification()">
+                    <i class="fas fa-paper-plane"></i> Test Webhook
+                </button>
+                <div class="test-result" id="webhookTestResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Preferences -->
+    <div class="notification-section">
+        <div class="section-header">
+            <h2><i class="fas fa-cog"></i> Alert Preferences</h2>
+        </div>
+        
+        <div class="notification-content">
+            <div class="alert-preferences">
+                <h3>SSL Certificate Alerts</h3>
+                <div class="preference-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="sslExpiryAlert" checked>
+                        <span class="checkmark"></span>
+                        Alert when SSL certificate expires within 30 days
+                    </label>
+                </div>
+                <div class="preference-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="sslExpiredAlert" checked>
+                        <span class="checkmark"></span>
+                        Alert when SSL certificate is expired
+                    </label>
+                </div>
+                
+                <h3>Blacklist Alerts</h3>
+                <div class="preference-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="blacklistAlert" checked>
+                        <span class="checkmark"></span>
+                        Alert when domain is listed on any blacklist
+                    </label>
+                </div>
+                
+                <h3>Email Security Alerts</h3>
+                <div class="preference-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="emailSecurityAlert">
+                        <span class="checkmark"></span>
+                        Alert when email security score is below 60
+                    </label>
+                </div>
+                
+                <h3>DNS Alerts</h3>
+                <div class="preference-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="dnsAlert">
+                        <span class="checkmark"></span>
+                        Alert when critical DNS records are missing
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Settings -->
+    <div class="action-section">
+        <button class="btn btn-primary btn-large" onclick="saveNotificationSettings()">
+            <i class="fas fa-save"></i> Save Settings
+        </button>
+    </div>
+
+    <!-- Notification History -->
+    <div class="notification-section">
+        <div class="section-header">
+            <h2><i class="fas fa-history"></i> Recent Notifications</h2>
+        </div>
+        
+        <div class="notification-content">
+            <div class="notification-history" id="notificationHistory">
+                <div class="history-item">
+                    <div class="history-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div class="history-content">
+                        <div class="history-title">No notifications yet</div>
+                        <div class="history-description">Notifications will appear here when alerts are triggered</div>
+                    </div>
+                    <div class="history-time">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Toggle sections
+document.getElementById('emailEnabled').addEventListener('change', function() {
+    document.getElementById('emailContent').style.display = this.checked ? 'block' : 'none';
+});
+
+document.getElementById('webhookEnabled').addEventListener('change', function() {
+    document.getElementById('webhookContent').style.display = this.checked ? 'block' : 'none';
+});
+
+function testEmailNotification() {
+    const toEmail = document.getElementById('toEmail').value;
+    if (!toEmail) {
+        showTestResult('emailTestResult', 'Please enter a recipient email address', 'error');
+        return;
+    }
+    
+    showTestResult('emailTestResult', 'Sending test email...', 'info');
+    
+    fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            type: 'email',
+            to_email: toEmail
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showTestResult('emailTestResult', 'Test email sent successfully!', 'success');
+        } else {
+            showTestResult('emailTestResult', 'Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showTestResult('emailTestResult', 'Error sending test email: ' + error.message, 'error');
+    });
+}
+
+function testWebhookNotification() {
+    const webhookUrl = document.getElementById('webhookUrl').value;
+    if (!webhookUrl) {
+        showTestResult('webhookTestResult', 'Please enter a webhook URL', 'error');
+        return;
+    }
+    
+    showTestResult('webhookTestResult', 'Sending test webhook...', 'info');
+    
+    fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            type: 'webhook',
+            webhook_url: webhookUrl
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showTestResult('webhookTestResult', 'Test webhook sent successfully!', 'success');
+        } else {
+            showTestResult('webhookTestResult', 'Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showTestResult('webhookTestResult', 'Error sending test webhook: ' + error.message, 'error');
+    });
+}
+
+function showTestResult(elementId, message, type) {
+    const element = document.getElementById(elementId);
+    element.textContent = message;
+    element.className = 'test-result ' + type;
+}
+
+function saveNotificationSettings() {
+    const settings = {
+        email: {
+            enabled: document.getElementById('emailEnabled').checked,
+            smtp_server: document.getElementById('smtpServer').value,
+            smtp_port: document.getElementById('smtpPort').value,
+            smtp_username: document.getElementById('smtpUsername').value,
+            smtp_password: document.getElementById('smtpPassword').value,
+            from_email: document.getElementById('fromEmail').value,
+            to_email: document.getElementById('toEmail').value
+        },
+        webhook: {
+            enabled: document.getElementById('webhookEnabled').checked,
+            url: document.getElementById('webhookUrl').value,
+            headers: document.getElementById('webhookHeaders').value
+        },
+        alerts: {
+            ssl_expiry: document.getElementById('sslExpiryAlert').checked,
+            ssl_expired: document.getElementById('sslExpiredAlert').checked,
+            blacklist: document.getElementById('blacklistAlert').checked,
+            email_security: document.getElementById('emailSecurityAlert').checked,
+            dns: document.getElementById('dnsAlert').checked
+        }
+    };
+    
+    // Save to localStorage for demo purposes
+    // In a real app, this would be saved to the database
+    localStorage.setItem('vaultview_notifications', JSON.stringify(settings));
+    
+    // Show success message
+    const saveBtn = document.querySelector('.action-section .btn');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-check"></i> Settings Saved!';
+    saveBtn.classList.add('success');
+    
+    setTimeout(() => {
+        saveBtn.innerHTML = originalText;
+        saveBtn.classList.remove('success');
+    }, 2000);
+}
+
+// Load saved settings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const saved = localStorage.getItem('vaultview_notifications');
+    if (saved) {
+        const settings = JSON.parse(saved);
+        
+        // Load email settings
+        if (settings.email) {
+            document.getElementById('emailEnabled').checked = settings.email.enabled;
+            document.getElementById('smtpServer').value = settings.email.smtp_server || '';
+            document.getElementById('smtpPort').value = settings.email.smtp_port || '';
+            document.getElementById('smtpUsername').value = settings.email.smtp_username || '';
+            document.getElementById('smtpPassword').value = settings.email.smtp_password || '';
+            document.getElementById('fromEmail').value = settings.email.from_email || '';
+            document.getElementById('toEmail').value = settings.email.to_email || '';
+            document.getElementById('emailContent').style.display = settings.email.enabled ? 'block' : 'none';
+        }
+        
+        // Load webhook settings
+        if (settings.webhook) {
+            document.getElementById('webhookEnabled').checked = settings.webhook.enabled;
+            document.getElementById('webhookUrl').value = settings.webhook.url || '';
+            document.getElementById('webhookHeaders').value = settings.webhook.headers || '';
+            document.getElementById('webhookContent').style.display = settings.webhook.enabled ? 'block' : 'none';
+        }
+        
+        // Load alert preferences
+        if (settings.alerts) {
+            document.getElementById('sslExpiryAlert').checked = settings.alerts.ssl_expiry;
+            document.getElementById('sslExpiredAlert').checked = settings.alerts.ssl_expired;
+            document.getElementById('blacklistAlert').checked = settings.alerts.blacklist;
+            document.getElementById('emailSecurityAlert').checked = settings.alerts.email_security;
+            document.getElementById('dnsAlert').checked = settings.alerts.dns;
+        }
+    }
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,397 @@
+{% extends "layout.html" %}
+
+{% block title %}Bulk Domain Scanner - VaultView{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Bulk Domain Scanner</h2>
+    <p class="text-muted">Enter multiple domains to scan them all at once</p>
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="/bulk/scan">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="form-group mb-3">
+                    <label for="domains" class="form-label">Enter domains (one per line):</label>
+                    <textarea class="form-control" id="domains" name="domains" rows="10" placeholder="google.com&#10;github.com&#10;facebook.com&#10;instagram.com" required></textarea>
+                    <small class="form-text text-muted">Enter one domain per line. Maximum 50 domains.</small>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label for="scan_type" class="form-label">Scan Type:</label>
+                    <select class="form-control" id="scan_type" name="scan_type" required>
+                        <option value="SSL">SSL Certificate</option>
+                        <option value="DNS">DNS Records</option>
+                        <option value="WHOIS">WHOIS Info</option>
+                        <option value="Blacklist">Blacklist Check</option>
+                        <option value="EMAIL">Email Diagnostics</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Start Bulk Scan</button>
+            </form>
+        </div>
+    </div>
+
+    {% if results %}
+    <div class="mt-4">
+        <h3>Scan Results</h3>
+        <div class="results-grid">
+            {% for result in results %}
+            <div class="result-card">
+                <div class="result-header">
+                    <div class="result-title">
+                        <h4>{{ result.domain }}</h4>
+                        <span class="result-type {{ result.scan_type.lower() }}">
+                            {{ result.scan_type }}
+                        </span>
+                    </div>
+                    <div class="result-actions">
+                        <span class="status-badge {{ result.status }}">
+                            {% if result.status == 'success' %}
+                                <i class="fas fa-check-circle"></i> Success
+                            {% else %}
+                                <i class="fas fa-exclamation-circle"></i> Failed
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="result-content">
+                    {% set data = result.data %}
+                    
+                    {% if result.scan_type == 'SSL' %}
+                        {% if 'error' not in data %}
+                            <div class="ssl-info">
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <label>Subject:</label>
+                                        <span>{{ data.subject }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Issuer:</label>
+                                        <span>{{ data.issuer }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Valid Until:</label>
+                                        <span>{{ data.valid_until[:10] }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Status:</label>
+                                        <span class="{{ 'valid' if data.is_valid else 'expired' }}">
+                                            {{ 'Valid' if data.is_valid else 'Expired' }}
+                                        </span>
+                                    </div>
+                                    {% if data.days_until_expiry > 0 %}
+                                        <div class="info-item">
+                                            <label>Days Remaining:</label>
+                                            <span>{{ data.days_until_expiry }}</span>
+                                        </div>
+                                    {% else %}
+                                        <div class="info-item">
+                                            <label>Expired:</label>
+                                            <span>{{ -data.days_until_expiry }} days ago</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="error-message">
+                                <i class="fas fa-exclamation-circle"></i>
+                                {{ data.error }}
+                            </div>
+                        {% endif %}
+                        
+                    {% elif result.scan_type == 'DNS' %}
+                        {% if 'error' not in data and 'records' in data %}
+                            <div class="dns-info">
+                                <div class="dns-summary">
+                                    <div class="record-count">
+                                        <strong>{{ data.records|length }}</strong> record types found
+                                    </div>
+                                </div>
+                                <div class="dns-records">
+                                    {% for record_type, records in data.records.items() %}
+                                        <div class="dns-record">
+                                            <div class="record-header">
+                                                <strong>{{ record_type }}</strong>
+                                                <span class="record-count-badge">{{ records|length }}</span>
+                                            </div>
+                                            <div class="record-values">
+                                                {% for record in records %}
+                                                    <div class="record-value">
+                                                        {% if record_type == 'CAA' and record is mapping %}
+                                                            <div class="caa-record">
+                                                                <div class="caa-flags">
+                                                                    <span class="flag">Flags: {{ record.flags }}</span>
+                                                                    <span class="tag">Tag: {{ record.tag }}</span>
+                                                                </div>
+                                                                <div class="caa-value">{{ record.value }}</div>
+                                                                <div class="caa-description">{{ record.description }}</div>
+                                                            </div>
+                                                        {% else %}
+                                                            {{ record }}
+                                                        {% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="error-message">
+                                <i class="fas fa-exclamation-circle"></i>
+                                {{ data.error if 'error' in data else 'Invalid DNS data' }}
+                            </div>
+                        {% endif %}
+                        
+                    {% elif result.scan_type == 'WHOIS' %}
+                        {% if 'error' not in data %}
+                            <div class="whois-info">
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <label>Domain:</label>
+                                        <span>{{ data.domain }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Registrar:</label>
+                                        <span>{{ data.registrar }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Creation Date:</label>
+                                        <span>{{ data.creation_date }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Expiration Date:</label>
+                                        <span>{{ data.expiration_date }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Updated Date:</label>
+                                        <span>{{ data.updated_date }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Status:</label>
+                                        <span>{{ data.status }}</span>
+                                    </div>
+                                    {% if data.name_servers %}
+                                        <div class="info-item">
+                                            <label>Name Servers:</label>
+                                            <span>{{ data.name_servers|join(', ') if data.name_servers is iterable else data.name_servers }}</span>
+                                        </div>
+                                    {% endif %}
+                                    {% if data.emails %}
+                                        <div class="info-item">
+                                            <label>Emails:</label>
+                                            <span>{{ data.emails|join(', ') if data.emails is iterable else data.emails }}</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% if data.raw %}
+                                    <details style="margin-top:1rem;">
+                                        <summary>Raw WHOIS Data</summary>
+                                        <pre style="font-size: 0.8rem; background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; overflow-x: auto;">{{ data.raw }}</pre>
+                                    </details>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="error-message">
+                                <i class="fas fa-exclamation-circle"></i>
+                                {{ data.error }}
+                            </div>
+                        {% endif %}
+                        
+                    {% elif result.scan_type == 'Blacklist' %}
+                        {% if 'error' not in data %}
+                            <div class="blacklist-info">
+                                <div class="blacklist-details">
+                                    <h5>Blacklist Check Results</h5>
+                                    <div class="blacklist-results">
+                                        {% for bl_key, bl_data in data.blacklists.items() %}
+                                            <div class="blacklist-item {{ 'listed' if bl_data.listed else 'clean' }}">
+                                                <div class="bl-header">
+                                                    <span class="bl-name">{{ bl_data.name }}</span>
+                                                    <span class="bl-status {{ 'listed' if bl_data.listed else 'clean' }}">
+                                                        {{ bl_data.status }}
+                                                    </span>
+                                                </div>
+                                                <div class="bl-description">{{ bl_data.description }}</div>
+                                                {% if bl_data.response_ip %}
+                                                    <div class="bl-response">Response: {{ bl_data.response_ip }}</div>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                
+                                <details style="margin-top:1rem;">
+                                    <summary>All Blacklist Results</summary>
+                                    <div class="all-blacklist-results">
+                                        {% for bl_key, bl_data in data.blacklists.items() %}
+                                            <div class="blacklist-item {{ 'listed' if bl_data.listed else 'clean' }}">
+                                                <div class="bl-header">
+                                                    <span class="bl-name">{{ bl_data.name }}</span>
+                                                    <span class="bl-status {{ 'listed' if bl_data.listed else 'clean' }}">
+                                                        {{ bl_data.status }}
+                                                    </span>
+                                                </div>
+                                                <div class="bl-description">{{ bl_data.description }}</div>
+                                                {% if bl_data.response_ip %}
+                                                    <div class="bl-response">Response: {{ bl_data.response_ip }}</div>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </details>
+                            </div>
+                        {% else %}
+                            <div class="error-message">
+                                <i class="fas fa-exclamation-circle"></i>
+                                {{ data.error }}
+                            </div>
+                        {% endif %}
+                    {% elif result.scan_type == 'EMAIL' %}
+                        {% if 'error' not in data %}
+                            <div class="email-info">
+                                <!-- Overall Score -->
+                                <div class="score-section">
+                                    <div class="score-circle {{ 'excellent' if data.score_level == 'Excellent' else 'good' if data.score_level == 'Good' else 'fair' if data.score_level == 'Fair' else 'poor' }}">
+                                        <div class="score-number">{{ data.overall_score }}</div>
+                                        <div class="score-label">{{ data.score_level }}</div>
+                                    </div>
+                                    <div class="score-details">
+                                        <h5>Email Security Score</h5>
+                                        <p>Comprehensive analysis of email infrastructure and security</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- MX Records -->
+                                <div class="section-block">
+                                    <h6><i class="fas fa-server"></i> MX Records ({{ data.mx_records|length }})</h6>
+                                    {% if data.mx_records %}
+                                        <div class="mx-records">
+                                            {% for mx in data.mx_records %}
+                                                <div class="mx-item">
+                                                    <div class="mx-priority">{{ mx.priority }}</div>
+                                                    <div class="mx-server">{{ mx.server }}</div>
+                                                    <div class="mx-ip">{{ mx.resolved }}</div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <p class="no-records">No MX records found</p>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Security Records -->
+                                <div class="section-block">
+                                    <h6><i class="fas fa-shield-alt"></i> Security Records</h6>
+                                    <div class="security-grid">
+                                        <!-- SPF -->
+                                        <div class="security-item {{ 'success' if data.security_records.spf.found else 'warning' }}">
+                                            <div class="security-header">
+                                                <i class="fas fa-{{ 'check-circle' if data.security_records.spf.found else 'exclamation-triangle' }}"></i>
+                                                <span>SPF</span>
+                                            </div>
+                                            <div class="security-status">{{ data.security_records.spf.status }}</div>
+                                            {% if data.security_records.spf.found %}
+                                                <div class="security-details">
+                                                    <small>{{ data.security_records.spf.record[:50] }}...</small>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- DKIM -->
+                                        <div class="security-item {{ 'success' if data.security_records.dkim.found else 'warning' }}">
+                                            <div class="security-header">
+                                                <i class="fas fa-{{ 'check-circle' if data.security_records.dkim.found else 'exclamation-triangle' }}"></i>
+                                                <span>DKIM</span>
+                                            </div>
+                                            <div class="security-status">{{ data.security_records.dkim.status }}</div>
+                                            {% if data.security_records.dkim.found %}
+                                                <div class="security-details">
+                                                    <small>{{ data.security_records.dkim.count }} record(s) found</small>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- DMARC -->
+                                        <div class="security-item {{ 'success' if data.security_records.dmarc.found else 'warning' }}">
+                                            <div class="security-header">
+                                                <i class="fas fa-{{ 'check-circle' if data.security_records.dmarc.found else 'exclamation-triangle' }}"></i>
+                                                <span>DMARC</span>
+                                            </div>
+                                            <div class="security-status">{{ data.security_records.dmarc.status }}</div>
+                                            {% if data.security_records.dmarc.found %}
+                                                <div class="security-details">
+                                                    <small>{{ data.security_records.dmarc.record[:50] }}...</small>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- SMTP Tests -->
+                                {% if data.smtp_tests and 'error' not in data.smtp_tests %}
+                                    <div class="section-block">
+                                        <h6><i class="fas fa-envelope"></i> SMTP Tests</h6>
+                                        <div class="smtp-tests">
+                                            {% for server, tests in data.smtp_tests.items() %}
+                                                {% if tests.tests %}
+                                                    <div class="smtp-server">
+                                                        <div class="server-header">
+                                                            <strong>{{ server }}</strong>
+                                                            <span class="server-ip">{{ tests.ip }}</span>
+                                                        </div>
+                                                        <div class="test-results">
+                                                            {% for test_name, test_result in tests.tests.items() %}
+                                                                <div class="test-item {{ 'success' if test_result.status in ['Connected', 'Supported'] else 'error' }}">
+                                                                    <span class="test-name">{{ test_name.upper() }}</span>
+                                                                    <span class="test-status">{{ test_result.status }}</span>
+                                                                </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                <!-- Recommendations -->
+                                {% if data.recommendations %}
+                                    <div class="section-block">
+                                        <h6><i class="fas fa-lightbulb"></i> Recommendations</h6>
+                                        <div class="recommendations">
+                                            {% for rec in data.recommendations %}
+                                                <div class="recommendation-item">
+                                                    <i class="fas fa-arrow-right"></i>
+                                                    <span>{{ rec }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="error-message">
+                                <i class="fas fa-exclamation-circle"></i>
+                                {{ data.error }}
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                
+                <div class="result-footer">
+                    <div class="timestamp">
+                        <i class="fas fa-clock"></i>
+                        {{ result.message }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

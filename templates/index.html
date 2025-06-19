@@ -1,0 +1,595 @@
+{% extends 'layout.html' %}
+
+{% block title %}Dashboard - VaultView{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Enhanced Header with Stats -->
+    <div class="dashboard-header">
+        <div class="header-content">
+            <h1><i class="fas fa-shield-alt"></i> Domain Security Monitor</h1>
+            <p class="subtitle">Welcome back, {{ current_user.username }}! Monitor your domains' security posture in real-time.</p>
+        </div>
+        <div class="quick-stats">
+            <div class="stat-card">
+                <div class="stat-icon ssl-icon">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-number">{{ scan_results|selectattr('result_type', 'equalto', 'SSL')|list|length }}</span>
+                    <span class="stat-label">SSL Scans</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon dns-icon">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-number">{{ scan_results|selectattr('result_type', 'equalto', 'DNS')|list|length }}</span>
+                    <span class="stat-label">DNS Scans</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon domain-icon">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-number">{{ scan_results|map(attribute='domain')|unique|list|length }}</span>
+                    <span class="stat-label">Domains</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Scan Section with Tabs -->
+    <div class="scan-section">
+        <div class="scan-card">
+            <div class="card-header">
+                <h3><i class="fas fa-search"></i> New Security Scan</h3>
+            </div>
+            
+            <!-- Single Domain Scan -->
+            <div class="scan-form-container">
+                <form method="POST" class="scan-form" id="single-scan-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="form-grid">
+                        <div class="form-group domain-group">
+                            <label for="domain" class="form-label">
+                                <i class="fas fa-globe"></i> Domain Name
+                            </label>
+                            <div class="input-with-icon">
+                                <input type="text" id="domain" name="domain" class="form-control" 
+                                       placeholder="Enter domain (e.g., example.com)" required>
+                                <i class="fas fa-search input-icon"></i>
+                            </div>
+                        </div>
+                        <div class="form-group scan-type-group">
+                            <label for="type" class="form-label">
+                                <i class="fas fa-cog"></i> Scan Type
+                            </label>
+                            <select name="type" id="scanType" class="form-control">
+                                <option value="SSL">SSL Certificate</option>
+                                <option value="DNS">DNS Records</option>
+                                <option value="WHOIS">WHOIS Info</option>
+                                <option value="BLACKLIST">Blacklist Check</option>
+                                <option value="EMAIL">Email Diagnostics</option>
+                            </select>
+                        </div>
+                        <div class="form-group submit-group">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary scan-btn">
+                                <i class="fas fa-play"></i> Start Scan
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Results Section -->
+    <div class="results-section">
+        <div class="section-header">
+            <h3><i class="fas fa-chart-line"></i> Recent Scan Results</h3>
+            <div class="view-controls">
+                <button class="view-btn active" data-view="grid">
+                    <i class="fas fa-th"></i> Grid
+                </button>
+                <button class="view-btn" data-view="list">
+                    <i class="fas fa-list"></i> List
+                </button>
+            </div>
+        </div>
+        
+        {% if scan_results %}
+            <div class="results-grid" id="results-container">
+                {% for result in scan_results %}
+                <div class="result-card" data-type="{{ result.result_type.lower() }}">
+                    <div class="result-header">
+                        <div class="result-title">
+                            <h4>{{ result.domain }}</h4>
+                            <span class="result-type {{ result.result_type.lower() }}">
+                                <i class="fas fa-{{ 'lock' if result.result_type == 'SSL' else 'globe' if result.result_type == 'DNS' else 'info-circle' }}"></i>
+                                {{ result.result_type }}
+                            </span>
+                        </div>
+                        <div class="result-actions">
+                            <button class="action-btn" title="Copy Results" onclick="copyResult('{{ result.id }}')">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="action-btn" title="Export" onclick="exportResult('{{ result.id }}')">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="result-content">
+                        {% set data = result.result_data|from_json %}
+                        {% if result.result_type == 'SSL' %}
+                            {% if 'error' not in data %}
+                                <div class="ssl-info">
+                                    <div class="status-indicator {{ 'valid' if data.is_valid else 'expired' }}">
+                                        <i class="fas fa-{{ 'check-circle' if data.is_valid else 'exclamation-triangle' }}"></i>
+                                        <span>{{ 'Valid' if data.is_valid else 'Expired' }}</span>
+                                    </div>
+                                    
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <label>Subject</label>
+                                            <span>{{ data.subject[:50] }}{{ '...' if data.subject|length > 50 else '' }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label>Issuer</label>
+                                            <span>{{ data.issuer[:50] }}{{ '...' if data.issuer|length > 50 else '' }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label>Valid Until</label>
+                                            <span>{{ data.valid_until[:10] }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label>Days Remaining</label>
+                                            <span class="{{ 'warning' if data.days_until_expiry <= 30 else 'normal' }}">
+                                                {{ data.days_until_expiry if data.days_until_expiry > 0 else 'Expired' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if data.days_until_expiry <= 30 and data.days_until_expiry > 0 %}
+                                        <div class="expiry-warning">
+                                            <i class="fas fa-clock"></i>
+                                            Certificate expires in {{ data.days_until_expiry }} days
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    {{ data.error }}
+                                </div>
+                            {% endif %}
+                        {% elif result.result_type == 'DNS' %}
+                            {% if 'error' not in data and 'records' in data %}
+                                <div class="dns-info">
+                                    <div class="dns-summary">
+                                        <span class="record-count">{{ data.records|length }} record types found</span>
+                                    </div>
+                                    
+                                    <div class="dns-records">
+                                        {% for record_type, records in data.records.items() %}
+                                            <div class="dns-record">
+                                                <div class="record-header">
+                                                    <strong>{{ record_type }}</strong>
+                                                    <span class="record-count-badge">{{ records|length if records is not string else 1 }}</span>
+                                                </div>
+                                                {% if record_type == 'CAA' %}
+                                                    <div class="record-values">
+                                                        {% for record in records %}
+                                                            {% if record is mapping %}
+                                                                <div class="caa-record">
+                                                                    <div class="caa-flags">
+                                                                        <span class="flag">{{ record.flags }}</span>
+                                                                        <span class="tag">{{ record.tag }}</span>
+                                                                    </div>
+                                                                    <div class="caa-value">{{ record.value }}</div>
+                                                                    <div class="caa-description">{{ record.description }}</div>
+                                                                </div>
+                                                            {% else %}
+                                                                <div class="record-value">{{ record }}</div>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </div>
+                                                {% else %}
+                                                    <div class="record-values">
+                                                        {% for record in records %}
+                                                            <div class="record-value">{{ record }}</div>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    {{ data.error if 'error' in data else 'Invalid DNS data' }}
+                                </div>
+                            {% endif %}
+                        {% elif result.result_type == 'WHOIS' %}
+                            {% if 'error' not in data %}
+                                <div class="whois-info">
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <label><i class="fas fa-user-shield"></i> Registrar</label>
+                                            <span>{{ data.registrar or 'N/A' }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-calendar-plus"></i> Created</label>
+                                            <span>{{ data.creation_date or 'N/A' }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-calendar-times"></i> Expires</label>
+                                            <span>{{ data.expiration_date or 'N/A' }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-calendar-alt"></i> Updated</label>
+                                            <span>{{ data.updated_date or 'N/A' }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-info-circle"></i> Status</label>
+                                            <span>{{ data.status or 'N/A' }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-server"></i> Name Servers</label>
+                                            <span>{{ data.name_servers|join(', ') if data.name_servers else 'N/A' }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-envelope"></i> Emails</label>
+                                            <span>{{ data.emails|join(', ') if data.emails else 'N/A' }}</span>
+                                        </div>
+                                    </div>
+                                    <details style="margin-top:1rem;">
+                                        <summary>Raw WHOIS Data</summary>
+                                        <pre style="font-size:0.9em; color:#444; background:#f9f9f9; border-radius:8px; padding:1em;">{{ data.raw }}</pre>
+                                    </details>
+                                </div>
+                            {% else %}
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    {{ data.error }}
+                                </div>
+                            {% endif %}
+                        {% elif result.result_type == 'BLACKLIST' %}
+                            {% if 'error' not in data %}
+                                <div class="blacklist-info">
+                                    <div class="status-indicator {{ 'danger' if data.overall_status == 'Listed' else 'success' }}">
+                                        <i class="fas fa-{{ 'exclamation-triangle' if data.overall_status == 'Listed' else 'check-circle' }}"></i>
+                                        <span>{{ data.overall_status }} ({{ data.severity }} Severity)</span>
+                                    </div>
+                                    
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <label><i class="fas fa-search"></i> Checked</label>
+                                            <span>{{ data.domain_or_ip }} ({{ data.type }})</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-list"></i> Total Blacklists</label>
+                                            <span>{{ data.summary.total_checked }}</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-times-circle"></i> Listed</label>
+                                            <span class="{{ 'danger' if data.summary.listed_count > 0 else 'success' }}">
+                                                {{ data.summary.listed_count }}
+                                            </span>
+                                        </div>
+                                        <div class="info-item">
+                                            <label><i class="fas fa-check-circle"></i> Clean</label>
+                                            <span class="success">{{ data.summary.clean_count }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if data.summary.listed_count > 0 %}
+                                        <div class="blacklist-details">
+                                            <h5><i class="fas fa-exclamation-triangle"></i> Listed on:</h5>
+                                            <div class="blacklist-results">
+                                                {% for bl_key, bl_data in data.blacklists.items() %}
+                                                    {% if bl_data.listed %}
+                                                        <div class="blacklist-item listed">
+                                                            <div class="bl-name">
+                                                                <i class="fas fa-ban"></i>
+                                                                {{ bl_data.name }}
+                                                            </div>
+                                                            <div class="bl-description">{{ bl_data.description }}</div>
+                                                            <div class="bl-response">Response: {{ bl_data.response_ip }}</div>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <details style="margin-top:1rem;">
+                                        <summary>All Blacklist Results</summary>
+                                        <div class="all-blacklist-results">
+                                            {% for bl_key, bl_data in data.blacklists.items() %}
+                                                <div class="blacklist-item {{ 'listed' if bl_data.listed else 'clean' }}">
+                                                    <div class="bl-header">
+                                                        <span class="bl-name">{{ bl_data.name }}</span>
+                                                        <span class="bl-status {{ 'listed' if bl_data.listed else 'clean' }}">
+                                                            {{ bl_data.status }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="bl-description">{{ bl_data.description }}</div>
+                                                    {% if bl_data.response_ip %}
+                                                        <div class="bl-response">Response: {{ bl_data.response_ip }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                </div>
+                            {% else %}
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    {{ data.error }}
+                                </div>
+                            {% endif %}
+                        {% elif result.result_type == 'EMAIL' %}
+                            {% if 'error' not in data %}
+                                <div class="email-info">
+                                    <!-- Overall Score -->
+                                    <div class="score-section">
+                                        <div class="score-circle {{ 'excellent' if data.score_level == 'Excellent' else 'good' if data.score_level == 'Good' else 'fair' if data.score_level == 'Fair' else 'poor' }}">
+                                            <div class="score-number">{{ data.overall_score }}</div>
+                                            <div class="score-label">{{ data.score_level }}</div>
+                                        </div>
+                                        <div class="score-details">
+                                            <h5>Email Security Score</h5>
+                                            <p>Comprehensive analysis of email infrastructure and security</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- MX Records -->
+                                    <div class="section-block">
+                                        <h6><i class="fas fa-server"></i> MX Records ({{ data.mx_records|length }})</h6>
+                                        {% if data.mx_records %}
+                                            <div class="mx-records">
+                                                {% for mx in data.mx_records %}
+                                                    <div class="mx-item">
+                                                        <div class="mx-priority">{{ mx.priority }}</div>
+                                                        <div class="mx-server">{{ mx.server }}</div>
+                                                        <div class="mx-ip">{{ mx.resolved }}</div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <p class="no-records">No MX records found</p>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Security Records -->
+                                    <div class="section-block">
+                                        <h6><i class="fas fa-shield-alt"></i> Security Records</h6>
+                                        <div class="security-grid">
+                                            <!-- SPF -->
+                                            <div class="security-item {{ 'success' if data.security_records.spf.found else 'warning' }}">
+                                                <div class="security-header">
+                                                    <i class="fas fa-{{ 'check-circle' if data.security_records.spf.found else 'exclamation-triangle' }}"></i>
+                                                    <span>SPF</span>
+                                                </div>
+                                                <div class="security-status">{{ data.security_records.spf.status }}</div>
+                                                {% if data.security_records.spf.found %}
+                                                    <div class="security-details">
+                                                        <small>{{ data.security_records.spf.record[:50] }}...</small>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- DKIM -->
+                                            <div class="security-item {{ 'success' if data.security_records.dkim.found else 'warning' }}">
+                                                <div class="security-header">
+                                                    <i class="fas fa-{{ 'check-circle' if data.security_records.dkim.found else 'exclamation-triangle' }}"></i>
+                                                    <span>DKIM</span>
+                                                </div>
+                                                <div class="security-status">{{ data.security_records.dkim.status }}</div>
+                                                {% if data.security_records.dkim.found %}
+                                                    <div class="security-details">
+                                                        <small>{{ data.security_records.dkim.count }} record(s) found</small>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- DMARC -->
+                                            <div class="security-item {{ 'success' if data.security_records.dmarc.found else 'warning' }}">
+                                                <div class="security-header">
+                                                    <i class="fas fa-{{ 'check-circle' if data.security_records.dmarc.found else 'exclamation-triangle' }}"></i>
+                                                    <span>DMARC</span>
+                                                </div>
+                                                <div class="security-status">{{ data.security_records.dmarc.status }}</div>
+                                                {% if data.security_records.dmarc.found %}
+                                                    <div class="security-details">
+                                                        <small>{{ data.security_records.dmarc.record[:50] }}...</small>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- SMTP Tests -->
+                                    {% if data.smtp_tests and 'error' not in data.smtp_tests %}
+                                        <div class="section-block">
+                                            <h6><i class="fas fa-envelope"></i> SMTP Tests</h6>
+                                            <div class="smtp-tests">
+                                                {% for server, tests in data.smtp_tests.items() %}
+                                                    {% if tests.tests %}
+                                                        <div class="smtp-server">
+                                                            <div class="server-header">
+                                                                <strong>{{ server }}</strong>
+                                                                <span class="server-ip">{{ tests.ip }}</span>
+                                                            </div>
+                                                            <div class="test-results">
+                                                                {% for test_name, test_result in tests.tests.items() %}
+                                                                    <div class="test-item {{ 'success' if test_result.status in ['Connected', 'Supported'] else 'error' }}">
+                                                                        <span class="test-name">{{ test_name.upper() }}</span>
+                                                                        <span class="test-status">{{ test_result.status }}</span>
+                                                                    </div>
+                                                                {% endfor %}
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <!-- Recommendations -->
+                                    {% if data.recommendations %}
+                                        <div class="section-block">
+                                            <h6><i class="fas fa-lightbulb"></i> Recommendations</h6>
+                                            <div class="recommendations">
+                                                {% for rec in data.recommendations %}
+                                                    <div class="recommendation-item">
+                                                        <i class="fas fa-arrow-right"></i>
+                                                        <span>{{ rec }}</span>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    {{ data.error }}
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    
+                    <div class="result-footer">
+                        <div class="timestamp">
+                            <i class="fas fa-clock"></i>
+                            {{ result.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                        </div>
+                        <div class="result-actions-footer">
+                            <button class="btn-small" onclick="rescanDomain('{{ result.domain }}', '{{ result.result_type }}')">
+                                <i class="fas fa-redo"></i> Rescan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h4>No scan results yet</h4>
+                <p>Start by scanning a domain above to see detailed security information.</p>
+                <button class="btn btn-primary" onclick="scrollToScan()">
+                    <i class="fas fa-plus"></i> Start Your First Scan
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay">
+    <div class="loading-content">
+        <div class="spinner"></div>
+        <p>Scanning domain...</p>
+    </div>
+</div>
+
+<script>
+// View controls
+document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const view = btn.dataset.view;
+        
+        // Update active view button
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Update results container
+        const container = document.getElementById('results-container');
+        container.className = `results-${view}`;
+    });
+});
+
+// Form submission with loading
+document.querySelectorAll('.scan-form').forEach(form => {
+    form.addEventListener('submit', () => {
+        document.getElementById('loading-overlay').style.display = 'flex';
+    });
+});
+
+// Utility functions
+function scrollToScan() {
+    document.querySelector('.scan-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function rescanDomain(domain, type) {
+    document.getElementById('domain').value = domain;
+    document.getElementById('scanType').value = type;
+    document.getElementById('single-scan-form').submit();
+}
+
+// Copy functionality
+function copyResult(resultId) {
+    fetch(`/api/results/${resultId}/copy`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Copy to clipboard
+                navigator.clipboard.writeText(data.data).then(() => {
+                    showNotification('Results copied to clipboard!', 'success');
+                }).catch(() => {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = data.data;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showNotification('Results copied to clipboard!', 'success');
+                });
+            } else {
+                showNotification('Failed to copy results', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error copying result:', error);
+            showNotification('Failed to copy results', 'error');
+        });
+}
+
+function exportResult(resultId) {
+    window.open(`/api/results/${resultId}/export`, '_blank');
+}
+
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+        <span>${message}</span>
+    `;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Show notification
+    setTimeout(() => notification.classList.add('show'), 100);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => document.body.removeChild(notification), 300);
+    }, 3000);
+}
+</script>
+{% endblock %} 

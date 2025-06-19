@@ -1,0 +1,122 @@
+{% extends 'layout.html' %}
+
+{% block title %}Dashboard - VaultView (Old Design){% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Domain Security Monitor</h1>
+        <p>Welcome, {{ current_user.username }}! Monitor your domains' SSL certificates and DNS records.</p>
+    </div>
+
+    <div class="scan-section">
+        <div class="scan-card">
+            <h3>New Scan</h3>
+            <form method="POST" class="scan-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="domain" class="form-label">Domain Name</label>
+                        <input type="text" id="domain" name="domain" class="form-control" 
+                               placeholder="Enter domain (e.g., example.com)" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="type" class="form-label">Scan Type</label>
+                        <select id="type" name="type" class="form-control">
+                            <option value="SSL">SSL Certificate</option>
+                            <option value="DNS">DNS Records</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary">Start Scan</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="results-section">
+        <h3>Recent Scan Results</h3>
+        {% if scan_results %}
+            <div class="results-grid">
+                {% for result in scan_results %}
+                <div class="result-card">
+                    <div class="result-header">
+                        <h4>{{ result.domain }}</h4>
+                        <span class="result-type {{ result.result_type.lower() }}">
+                            {{ result.result_type }}
+                        </span>
+                    </div>
+                    <div class="result-content">
+                        {% set data = result.result_data|from_json %}
+                        {% if result.result_type == 'SSL' %}
+                            {% if 'error' not in data %}
+                                <div class="ssl-info">
+                                    <p><strong>Subject:</strong> {{ data.subject }}</p>
+                                    <p><strong>Issuer:</strong> {{ data.issuer }}</p>
+                                    <p><strong>Valid Until:</strong> {{ data.valid_until[:10] }}</p>
+                                    <p><strong>Status:</strong> 
+                                        <span class="status-{{ 'valid' if data.is_valid else 'expired' }}">
+                                            {{ 'Valid' if data.is_valid else 'Expired' }}
+                                        </span>
+                                    </p>
+                                    {% if data.days_until_expiry > 0 %}
+                                        <p><strong>Days Remaining:</strong> {{ data.days_until_expiry }}</p>
+                                    {% else %}
+                                        <p><strong>Expired:</strong> {{ -data.days_until_expiry }} days ago</p>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <p class="error-message">{{ data.error }}</p>
+                            {% endif %}
+                        {% elif result.result_type == 'DNS' %}
+                            {% if 'error' not in data and 'records' in data %}
+                                <div class="dns-info">
+                                    {% for record_type, records in data.records.items() %}
+                                        <div class="dns-record">
+                                            <strong>{{ record_type }}:</strong>
+                                            {% if record_type == 'CAA' %}
+                                                <ul>
+                                                    {% for record in records %}
+                                                        {% if record is mapping %}
+                                                            <li>
+                                                                <strong>Flags:</strong> {{ record.flags }} | 
+                                                                <strong>Tag:</strong> {{ record.tag }} | 
+                                                                <strong>Value:</strong> {{ record.value }}
+                                                                <br><small class="caa-description">{{ record.description }}</small>
+                                                            </li>
+                                                        {% else %}
+                                                            <li>{{ record }}</li>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <ul>
+                                                    {% for record in records %}
+                                                        <li>{{ record }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="error-message">{{ data.error if 'error' in data else 'Invalid DNS data' }}</p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="result-footer">
+                        <small>Scanned on: {{ result.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>No scan results yet. Start by scanning a domain above.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 
