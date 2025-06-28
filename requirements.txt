@@ -2,6 +2,8 @@ numpy
 pandas
 matplotlib
 mlflow
+flask_migrate
+whois
 flask==2.3.3
 flask-login==0.6.3
 flask-wtf==1.1.1
