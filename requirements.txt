@@ -3,6 +3,7 @@ pandas
 matplotlib
 mlflow
 flask_migrate
+gunicorn
 whois
 flask==2.3.3
 flask-login==0.6.3
