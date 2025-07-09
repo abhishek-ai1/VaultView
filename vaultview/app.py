@@ -16,7 +16,7 @@ login_manager = LoginManager()
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-def create_app():
+def create_app(*args, **kwargs):
     # Get the directory where this file is located
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # Go up one level to the project root
