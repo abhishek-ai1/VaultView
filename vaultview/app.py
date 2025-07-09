@@ -65,4 +65,4 @@ def create_app(*args, **kwargs):
         from vaultview.notifications import start_notification_service
         start_notification_service()
     
-    return app 
+    return app
